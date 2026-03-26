@@ -10,6 +10,11 @@ import type { ActorMethod } from '@icp-sdk/core/agent';
 import type { IDL } from '@icp-sdk/core/candid';
 import type { Principal } from '@icp-sdk/core/principal';
 
+export interface Message {
+  'id' : string,
+  'text' : string,
+  'timestamp' : bigint,
+}
 export interface TransformationInput {
   'context' : Uint8Array,
   'response' : http_request_result,
@@ -26,8 +31,22 @@ export interface http_request_result {
   'headers' : Array<http_header>,
 }
 export interface _SERVICE {
+  'channel_exists' : ActorMethod<[string], boolean>,
+  'cleanup_expired_sessions' : ActorMethod<[], undefined>,
+  'create_channel' : ActorMethod<[string], boolean>,
   'generate_experience' : ActorMethod<[string], string>,
+  'get_messages' : ActorMethod<[string], Array<Message>>,
+  'poll_veil' : ActorMethod<
+    [string],
+    { 'channelCode' : string, 'phase' : string }
+  >,
+  'send_message' : ActorMethod<[string, string], boolean>,
+  'submit_veil_hash' : ActorMethod<
+    [string, string],
+    { 'token' : string, 'signal' : string }
+  >,
   'transform' : ActorMethod<[TransformationInput], TransformationOutput>,
+  'veil_consent' : ActorMethod<[string, boolean], string>,
 }
 export declare const idlService: IDL.ServiceClass;
 export declare const idlInitArgs: IDL.Type[];

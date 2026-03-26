@@ -93,6 +93,11 @@ export interface TransformationInput {
     context: Uint8Array;
     response: http_request_result;
 }
+export interface Message {
+    id: string;
+    text: string;
+    timestamp: bigint;
+}
 export interface TransformationOutput {
     status: bigint;
     body: Uint8Array;
@@ -108,11 +113,67 @@ export interface http_request_result {
     headers: Array<http_header>;
 }
 export interface backendInterface {
+    channel_exists(code: string): Promise<boolean>;
+    cleanup_expired_sessions(): Promise<void>;
+    create_channel(code: string): Promise<boolean>;
     generate_experience(pulse: string): Promise<string>;
+    get_messages(code: string): Promise<Array<Message>>;
+    poll_veil(token: string): Promise<{
+        channelCode: string;
+        phase: string;
+    }>;
+    send_message(code: string, text: string): Promise<boolean>;
+    submit_veil_hash(hash: string, windowId: string): Promise<{
+        token: string;
+        signal: string;
+    }>;
     transform(input: TransformationInput): Promise<TransformationOutput>;
+    veil_consent(token: string, accept: boolean): Promise<string>;
 }
 export class Backend implements backendInterface {
     constructor(private actor: ActorSubclass<_SERVICE>, private _uploadFile: (file: ExternalBlob) => Promise<Uint8Array>, private _downloadFile: (file: Uint8Array) => Promise<ExternalBlob>, private processError?: (error: unknown) => never){}
+    async channel_exists(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.channel_exists(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.channel_exists(arg0);
+            return result;
+        }
+    }
+    async cleanup_expired_sessions(): Promise<void> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.cleanup_expired_sessions();
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.cleanup_expired_sessions();
+            return result;
+        }
+    }
+    async create_channel(arg0: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.create_channel(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.create_channel(arg0);
+            return result;
+        }
+    }
     async generate_experience(arg0: string): Promise<string> {
         if (this.processError) {
             try {
@@ -127,6 +188,68 @@ export class Backend implements backendInterface {
             return result;
         }
     }
+    async get_messages(arg0: string): Promise<Array<Message>> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.get_messages(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.get_messages(arg0);
+            return result;
+        }
+    }
+    async poll_veil(arg0: string): Promise<{
+        channelCode: string;
+        phase: string;
+    }> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.poll_veil(arg0);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.poll_veil(arg0);
+            return result;
+        }
+    }
+    async send_message(arg0: string, arg1: string): Promise<boolean> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.send_message(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.send_message(arg0, arg1);
+            return result;
+        }
+    }
+    async submit_veil_hash(arg0: string, arg1: string): Promise<{
+        token: string;
+        signal: string;
+    }> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.submit_veil_hash(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.submit_veil_hash(arg0, arg1);
+            return result;
+        }
+    }
     async transform(arg0: TransformationInput): Promise<TransformationOutput> {
         if (this.processError) {
             try {
@@ -138,6 +261,20 @@ export class Backend implements backendInterface {
             }
         } else {
             const result = await this.actor.transform(arg0);
+            return result;
+        }
+    }
+    async veil_consent(arg0: string, arg1: boolean): Promise<string> {
+        if (this.processError) {
+            try {
+                const result = await this.actor.veil_consent(arg0, arg1);
+                return result;
+            } catch (e) {
+                this.processError(e);
+                throw new Error("unreachable");
+            }
+        } else {
+            const result = await this.actor.veil_consent(arg0, arg1);
             return result;
         }
     }

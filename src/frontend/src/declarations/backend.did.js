@@ -8,6 +8,11 @@
 
 import { IDL } from '@icp-sdk/core/candid';
 
+export const Message = IDL.Record({
+  'id' : IDL.Text,
+  'text' : IDL.Text,
+  'timestamp' : IDL.Int,
+});
 export const http_header = IDL.Record({
   'value' : IDL.Text,
   'name' : IDL.Text,
@@ -28,17 +33,38 @@ export const TransformationOutput = IDL.Record({
 });
 
 export const idlService = IDL.Service({
+  'channel_exists' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
+  'cleanup_expired_sessions' : IDL.Func([], [], []),
+  'create_channel' : IDL.Func([IDL.Text], [IDL.Bool], []),
   'generate_experience' : IDL.Func([IDL.Text], [IDL.Text], []),
+  'get_messages' : IDL.Func([IDL.Text], [IDL.Vec(Message)], []),
+  'poll_veil' : IDL.Func(
+      [IDL.Text],
+      [IDL.Record({ 'channelCode' : IDL.Text, 'phase' : IDL.Text })],
+      [],
+    ),
+  'send_message' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
+  'submit_veil_hash' : IDL.Func(
+      [IDL.Text, IDL.Text],
+      [IDL.Record({ 'token' : IDL.Text, 'signal' : IDL.Text })],
+      [],
+    ),
   'transform' : IDL.Func(
       [TransformationInput],
       [TransformationOutput],
       ['query'],
     ),
+  'veil_consent' : IDL.Func([IDL.Text, IDL.Bool], [IDL.Text], []),
 });
 
 export const idlInitArgs = [];
 
 export const idlFactory = ({ IDL }) => {
+  const Message = IDL.Record({
+    'id' : IDL.Text,
+    'text' : IDL.Text,
+    'timestamp' : IDL.Int,
+  });
   const http_header = IDL.Record({ 'value' : IDL.Text, 'name' : IDL.Text });
   const http_request_result = IDL.Record({
     'status' : IDL.Nat,
@@ -56,12 +82,28 @@ export const idlFactory = ({ IDL }) => {
   });
   
   return IDL.Service({
+    'channel_exists' : IDL.Func([IDL.Text], [IDL.Bool], ['query']),
+    'cleanup_expired_sessions' : IDL.Func([], [], []),
+    'create_channel' : IDL.Func([IDL.Text], [IDL.Bool], []),
     'generate_experience' : IDL.Func([IDL.Text], [IDL.Text], []),
+    'get_messages' : IDL.Func([IDL.Text], [IDL.Vec(Message)], []),
+    'poll_veil' : IDL.Func(
+        [IDL.Text],
+        [IDL.Record({ 'channelCode' : IDL.Text, 'phase' : IDL.Text })],
+        [],
+      ),
+    'send_message' : IDL.Func([IDL.Text, IDL.Text], [IDL.Bool], []),
+    'submit_veil_hash' : IDL.Func(
+        [IDL.Text, IDL.Text],
+        [IDL.Record({ 'token' : IDL.Text, 'signal' : IDL.Text })],
+        [],
+      ),
     'transform' : IDL.Func(
         [TransformationInput],
         [TransformationOutput],
         ['query'],
       ),
+    'veil_consent' : IDL.Func([IDL.Text, IDL.Bool], [IDL.Text], []),
   });
 };
 

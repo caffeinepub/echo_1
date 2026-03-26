@@ -322,3 +322,27 @@
     animation: none;
   }
 }
+
+@keyframes ghostFlicker {
+  0%,
+  85%,
+  100% {
+    opacity: 1;
+    border-color: oklch(0.4 0.08 145 / 0.6);
+  }
+  87% {
+    opacity: 0.7;
+    border-color: oklch(0.6 0.1 145 / 0.9);
+  }
+  89% {
+    opacity: 1;
+    border-color: oklch(0.25 0.06 145 / 0.4);
+  }
+  91% {
+    opacity: 0.5;
+    border-color: oklch(0.55 0.09 145 / 0.8);
+  }
+  93% {
+    opacity: 1;
+  }
+}

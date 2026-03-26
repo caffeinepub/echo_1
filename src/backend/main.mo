@@ -2,6 +2,11 @@ import OutCall "http-outcalls/outcall";
 import Map "mo:core/Map";
 import Text "mo:core/Text";
 import Time "mo:core/Time";
+import Array "mo:core/Array";
+import Nat "mo:core/Nat";
+import Iter "mo:core/Iter";
+
+
 
 actor {
   // --- HTTP outcall transform (required) ---
@@ -51,7 +56,7 @@ actor {
       case (?existing) {
         if (now - existing.createdAt < CHANNEL_TTL) { return true };
       };
-      case null {};
+      case (null) {};
     };
     let ch : Channel = { var messages = []; createdAt = now };
     channels.add(code, ch);
@@ -62,14 +67,14 @@ actor {
     let now = Time.now();
     switch (channels.get(code)) {
       case (?ch) { now - ch.createdAt < CHANNEL_TTL };
-      case null { false };
+      case (null) { false };
     };
   };
 
   public func send_message(code : Text, text : Text) : async Bool {
     let now = Time.now();
     switch (channels.get(code)) {
-      case null { return false };
+      case (null) { return false };
       case (?ch) {
         if (now - ch.createdAt >= CHANNEL_TTL) { return false };
         let trimmed : Text = if (text.size() > 240) {
@@ -92,7 +97,7 @@ actor {
   public func get_messages(code : Text) : async [Message] {
     let now = Time.now();
     switch (channels.get(code)) {
-      case null { [] };
+      case (null) { [] };
       case (?ch) {
         let active = ch.messages.filter(func(m : Message) : Bool { now - m.timestamp < MSG_TTL });
         ch.messages := active;
@@ -158,12 +163,12 @@ actor {
               hashIndex.remove(indexKey);
             };
           };
-          case null {
+          case (null) {
             hashIndex.remove(indexKey);
           };
         };
       };
-      case null {};
+      case (null) {};
     };
 
     let mySession : VeilSession = {
@@ -182,7 +187,7 @@ actor {
   public func poll_veil(token : Text) : async { phase : Text; channelCode : Text } {
     let now = Time.now();
     switch (veilSessions.get(token)) {
-      case null { { phase = "void"; channelCode = "" } };
+      case (null) { { phase = "void"; channelCode = "" } };
       case (?s) {
         if (now - s.createdAt > VEIL_TTL) {
           { phase = "void"; channelCode = "" }
@@ -198,20 +203,20 @@ actor {
   public func veil_consent(token : Text, accept : Bool) : async Text {
     let now = Time.now();
     switch (veilSessions.get(token)) {
-      case null { "void" };
+      case (null) { "void" };
       case (?s) {
         if (s.phase != "consent") { return "void" };
         if (not accept) {
           s.phase := "void";
           switch (veilSessions.get(s.peerToken)) {
             case (?peer) { peer.phase := "void" };
-            case null {};
+            case (null) {};
           };
           return "signal dissolved";
         };
         s.consentGiven := true;
         switch (veilSessions.get(s.peerToken)) {
-          case null { "awaiting resonance" };
+          case (null) { "awaiting resonance" };
           case (?peer) {
             if (peer.consentGiven) {
               let channelCode = shortText(token, 6) # shortText(s.peerToken, 6);
@@ -227,6 +232,33 @@ actor {
             }
           };
         }
+      };
+    };
+  };
+
+  // --- Cleanup mechanism ---
+
+  public func cleanup_expired_sessions() : async () {
+    let now = Time.now();
+    // Clean up veilSessions
+    let veilEntries = veilSessions.toArray();
+    for ((token, session) in veilEntries.values()) {
+      if (now - session.createdAt > VEIL_TTL) {
+        veilSessions.remove(token);
+      };
+    };
+    // Clean up hashIndex where corresponding entry no longer exists in veilSessions
+    let hashEntries = hashIndex.toArray();
+    for ((indexKey, token) in hashEntries.values()) {
+      if (not veilSessions.containsKey(token)) {
+        hashIndex.remove(indexKey);
+      };
+    };
+    // Clean up channels that are expired or empty
+    let channelEntries = channels.toArray();
+    for ((code, channel) in channelEntries.values()) {
+      if (now - channel.createdAt > CHANNEL_TTL or channel.messages.size() == 0) {
+        channels.remove(code);
       };
     };
   };
