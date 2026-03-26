@@ -1,14 +1,16 @@
 import { Mic, Waves } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { HistoryEntry } from "../App";
 import { useGhostTyping } from "../hooks/useGhostTyping";
 import { useLastWord } from "../hooks/useLastWord";
 import { useSilenceMoment } from "../hooks/useSilenceMoment";
 import { useSoundEcho } from "../hooks/useSoundEcho";
+import { useSoundTexture } from "../hooks/useSoundTexture";
 import AudioToggle from "./AudioToggle";
 import CollectiveMemory from "./CollectiveMemory";
 import CollectiveWave from "./CollectiveWave";
+import ConsciousnessStream from "./ConsciousnessStream";
 import DarkPoll from "./DarkPoll";
 import GhostTyping from "./GhostTyping";
 import LastWordPrompt from "./LastWordPrompt";
@@ -68,16 +70,37 @@ export default function LandingView({
   const [shadowInput, setShadowInput] = useState("");
   const [shadowFocused, setShadowFocused] = useState(false);
   const [blindSpotFlash, setBlindSpotFlash] = useState(false);
+
+  // Consciousness Stream state
+  const [keyEvents, setKeyEvents] = useState<
+    { time: number; interval: number }[]
+  >([]);
+  const lastKeyTimeRef = useRef<number | null>(null);
+  const streamHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [streamVisible, setStreamVisible] = useState(false);
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const shadowInputRef = useRef<HTMLInputElement>(null);
   const { isSilent } = useSilenceMoment();
   const { ghostText, isVisible: ghostVisible } = useGhostTyping(focused);
   const { lastWord } = useLastWord();
   const { recording, countdown, recorded, startRecording } = useSoundEcho();
+  const { textureHint, captureTexture } = useSoundTexture();
 
-  const handleSubmit = () => {
+  // Auto-hide stream when input cleared
+  useEffect(() => {
+    if (!input.trim()) {
+      setStreamVisible(false);
+      setKeyEvents([]);
+      lastKeyTimeRef.current = null;
+    }
+  }, [input]);
+
+  const handleSubmit = async () => {
     if (!input.trim() || isLoading) return;
     if (!isPlaying) onToggleAudio();
+    // Fire sound texture capture (non-blocking)
+    captureTexture();
     onSubmit(input, shadowInput.trim() || undefined);
     setShadowInput("");
     setShadowOpen(false);
@@ -87,7 +110,26 @@ export default function LandingView({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit();
+      return;
     }
+
+    // Record key event for Consciousness Stream
+    const now = Date.now();
+    const interval =
+      lastKeyTimeRef.current !== null ? now - lastKeyTimeRef.current : 200;
+    lastKeyTimeRef.current = now;
+
+    setKeyEvents((prev) => [
+      ...prev.slice(-39),
+      { time: now, interval: Math.min(interval, 2000) },
+    ]);
+    setStreamVisible(true);
+
+    // Reset hide timer
+    if (streamHideTimerRef.current) clearTimeout(streamHideTimerRef.current);
+    streamHideTimerRef.current = setTimeout(() => {
+      setStreamVisible(false);
+    }, 3000);
   };
 
   const handleShadowToggle = () => {
@@ -367,6 +409,12 @@ export default function LandingView({
                 <GhostTyping ghostText={ghostText} isVisible={ghostVisible} />
               </div>
 
+              {/* Consciousness Stream visualization */}
+              <ConsciousnessStream
+                keyEvents={keyEvents}
+                visible={streamVisible}
+              />
+
               {/* Shadow Message Toggle */}
               <div className="px-5 pb-2">
                 <div
@@ -484,42 +532,65 @@ export default function LandingView({
                     )}
                   </button>
                 </div>
-                <div className="flex items-center gap-2">
-                  {/* Loading / connecting indicator */}
+                <div className="flex flex-col items-end gap-1">
+                  {/* Sound Texture hint — floats above the submit button */}
                   <AnimatePresence>
-                    {isLoading && (
+                    {textureHint && (
                       <motion.span
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0 }}
-                        transition={{ duration: 0.4 }}
-                        className="font-cinzel text-xs tracking-[0.18em] animate-pulse"
-                        style={{ color: "oklch(0.65 0.060 207 / 0.7)" }}
+                        transition={{ duration: 0.6, ease: "easeOut" }}
+                        className="font-mono text-xs"
+                        style={{
+                          color: "oklch(0.65 0.060 207 / 0.7)",
+                          letterSpacing: "0.12em",
+                          fontSize: "0.6rem",
+                        }}
+                        aria-live="polite"
                       >
-                        ba\u011flan\u0131yor\u2026
+                        {textureHint}
                       </motion.span>
                     )}
                   </AnimatePresence>
-                  <button
-                    type="button"
-                    onClick={handleSubmit}
-                    disabled={isSubmitDisabled}
-                    className="flex items-center gap-2 font-cinzel text-xs tracking-[0.2em] px-5 py-2.5 rounded-xl transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
-                    style={{
-                      background: !isSubmitDisabled
-                        ? "linear-gradient(135deg, oklch(0.25 0.040 222), oklch(0.20 0.035 220))"
-                        : "oklch(0.20 0.030 222)",
-                      border: "1px solid oklch(0.85 0.115 207 / 0.3)",
-                      color: "oklch(0.85 0.115 207)",
-                      boxShadow: !isSubmitDisabled
-                        ? "0 0 16px oklch(0.85 0.115 207 / 0.2)"
-                        : "none",
-                    }}
-                    data-ocid="pulse.submit_button"
-                  >
-                    <Waves size={14} />
-                    SYNC PULSE
-                  </button>
+
+                  <div className="flex items-center gap-2">
+                    {/* Loading / connecting indicator */}
+                    <AnimatePresence>
+                      {isLoading && (
+                        <motion.span
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.4 }}
+                          className="font-cinzel text-xs tracking-[0.18em] animate-pulse"
+                          style={{ color: "oklch(0.65 0.060 207 / 0.7)" }}
+                        >
+                          ba\u011flan\u0131yor\u2026
+                        </motion.span>
+                      )}
+                    </AnimatePresence>
+                    <button
+                      type="button"
+                      onClick={handleSubmit}
+                      disabled={isSubmitDisabled}
+                      className="flex items-center gap-2 font-cinzel text-xs tracking-[0.2em] px-5 py-2.5 rounded-xl transition-all duration-300 disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{
+                        background: !isSubmitDisabled
+                          ? "linear-gradient(135deg, oklch(0.25 0.040 222), oklch(0.20 0.035 220))"
+                          : "oklch(0.20 0.030 222)",
+                        border: "1px solid oklch(0.85 0.115 207 / 0.3)",
+                        color: "oklch(0.85 0.115 207)",
+                        boxShadow: !isSubmitDisabled
+                          ? "0 0 16px oklch(0.85 0.115 207 / 0.2)"
+                          : "none",
+                      }}
+                      data-ocid="pulse.submit_button"
+                    >
+                      <Waves size={14} />
+                      SYNC PULSE
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>

@@ -367,7 +367,7 @@ export default function EchoVeilOverlay({
 
   // Dark Mirror state
   const [darkMirrorActive, setDarkMirrorActive] = useState(false);
-  const [darkMirrorTimeLeft, setDarkMirrorTimeLeft] = useState(60);
+  const [darkMirrorTimeLeft, setDarkMirrorTimeLeft] = useState(180);
   const [darkMirrorConnected, setDarkMirrorConnected] = useState(false);
   const [darkMirrorError, setDarkMirrorError] = useState("");
   const [darkMirrorDestroyMsg, setDarkMirrorDestroyMsg] = useState("");
@@ -381,6 +381,17 @@ export default function EchoVeilOverlay({
   const darkMirrorConnectRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const darkMirrorParticlesRef = useRef<
+    Array<{
+      x: number;
+      y: number;
+      vx: number;
+      vy: number;
+      size: number;
+      alpha: number;
+      hue: number;
+    }>
+  >([]);
 
   // Ghost Frequency state
   const [ghostFreqActive, setGhostFreqActive] = useState(false);
@@ -810,9 +821,10 @@ export default function EchoVeilOverlay({
         darkMirrorConnectRef.current = null;
       }
       darkMirrorVideoRef.current = null;
+      darkMirrorParticlesRef.current = [];
       setDarkMirrorActive(false);
       setDarkMirrorConnected(false);
-      setDarkMirrorTimeLeft(60);
+      setDarkMirrorTimeLeft(180);
       const msg = reason || "bağlantı atomlarına ayrıldı";
       setDarkMirrorDestroyMsg(msg);
       setTimeout(() => setDarkMirrorDestroyMsg(""), 3500);
@@ -842,7 +854,7 @@ export default function EchoVeilOverlay({
 
       setDarkMirrorActive(true);
       setDarkMirrorConnected(false);
-      setDarkMirrorTimeLeft(60);
+      setDarkMirrorTimeLeft(180);
 
       // Simulate peer connection after 2.5s
       darkMirrorConnectRef.current = setTimeout(() => {
@@ -850,7 +862,7 @@ export default function EchoVeilOverlay({
       }, 2500);
 
       // Countdown timer
-      let timeLeft = 60;
+      let timeLeft = 180;
       darkMirrorTimerRef.current = setInterval(() => {
         timeLeft--;
         setDarkMirrorTimeLeft(timeLeft);
@@ -859,7 +871,9 @@ export default function EchoVeilOverlay({
         }
       }, 1000);
 
-      // Canvas render loop — shadow silhouette effect
+      // Canvas render loop — particle cloud + shadow silhouette effect
+      darkMirrorParticlesRef.current = [];
+      const hues = [207, 230, 270, 190];
       const runLoop = () => {
         const canvas = darkMirrorCanvasRef.current;
         const vid = darkMirrorVideoRef.current;
@@ -872,10 +886,8 @@ export default function EchoVeilOverlay({
         const W = canvas.width;
         const H = canvas.height;
 
-        // Draw video frame
+        // Layer 1: Shadow silhouette
         ctx.drawImage(vid, 0, 0, W, H);
-
-        // Get pixel data and apply shadow transform
         const imageData = ctx.getImageData(0, 0, W, H);
         const data = imageData.data;
         for (let i = 0; i < data.length; i += 4) {
@@ -883,35 +895,78 @@ export default function EchoVeilOverlay({
           const g = data[i + 1];
           const b = data[i + 2];
           const brightness = r * 0.299 + g * 0.587 + b * 0.114;
-          if (brightness > 28) {
-            // Map to dark shadow: dim blue-grey glow
+          if (brightness > 20) {
             const intensity = Math.min(brightness / 255, 1);
-            data[i] = Math.floor(8 + intensity * 18); // R near black
-            data[i + 1] = Math.floor(10 + intensity * 22); // G near black
-            data[i + 2] = Math.floor(18 + intensity * 45); // B subtle blue
-            data[i + 3] = Math.floor(180 + intensity * 75); // Alpha
+            data[i] = Math.floor(4 + intensity * 8);
+            data[i + 1] = Math.floor(6 + intensity * 10);
+            data[i + 2] = Math.floor(15 + intensity * 25);
+            data[i + 3] = Math.floor(150 + intensity * 105);
           } else {
-            // Pure black background
-            data[i] = 2;
-            data[i + 1] = 3;
-            data[i + 2] = 6;
+            data[i] = 0;
+            data[i + 1] = 0;
+            data[i + 2] = 0;
             data[i + 3] = 255;
           }
         }
+        ctx.putImageData(imageData, 0, 0);
 
-        // Add subtle particle noise
-        for (let n = 0; n < 60; n++) {
+        // Layer 2: Particle system — sample brightness, spawn & draw particles
+        const sampleData = ctx.getImageData(0, 0, W, H);
+        const sd = sampleData.data;
+        // Spawn new particles from bright regions
+        for (let s = 0; s < 12; s++) {
           const px = Math.floor(Math.random() * W);
           const py = Math.floor(Math.random() * H);
           const idx = (py * W + px) * 4;
-          if (idx >= 0 && idx < data.length - 3) {
-            const glow = Math.random() * 40;
-            data[idx] = Math.min(255, data[idx] + glow * 0.3);
-            data[idx + 1] = Math.min(255, data[idx + 1] + glow * 0.4);
-            data[idx + 2] = Math.min(255, data[idx + 2] + glow * 0.9);
+          const br =
+            sd[idx] * 0.299 + sd[idx + 1] * 0.587 + sd[idx + 2] * 0.114;
+          if (br > 40) {
+            darkMirrorParticlesRef.current.push({
+              x: px,
+              y: py,
+              vx: (Math.random() - 0.5) * 0.8,
+              vy: -(Math.random() * 0.7 + 0.1),
+              size: Math.random() * 2.5 + 1.5,
+              alpha: Math.random() * 0.4 + 0.5,
+              hue: hues[Math.floor(Math.random() * hues.length)],
+            });
           }
         }
-        ctx.putImageData(imageData, 0, 0);
+        // Cap particles
+        if (darkMirrorParticlesRef.current.length > 280) {
+          darkMirrorParticlesRef.current.splice(
+            0,
+            darkMirrorParticlesRef.current.length - 280,
+          );
+        }
+        // Update & draw
+        darkMirrorParticlesRef.current = darkMirrorParticlesRef.current.filter(
+          (p) => p.alpha > 0,
+        );
+        for (const p of darkMirrorParticlesRef.current) {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.alpha -= 0.012;
+          p.vx += (Math.random() - 0.5) * 0.1;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+          ctx.fillStyle = `hsla(${p.hue}, 70%, 65%, ${p.alpha})`;
+          ctx.fill();
+        }
+
+        // Layer 3: Vignette
+        const grad = ctx.createRadialGradient(
+          W / 2,
+          H / 2,
+          H * 0.25,
+          W / 2,
+          H / 2,
+          H * 0.75,
+        );
+        grad.addColorStop(0, "rgba(0,0,0,0)");
+        grad.addColorStop(1, "rgba(0,0,0,0.85)");
+        ctx.fillStyle = grad;
+        ctx.fillRect(0, 0, W, H);
 
         darkMirrorRafRef.current = requestAnimationFrame(runLoop);
       };
